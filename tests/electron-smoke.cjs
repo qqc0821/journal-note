@@ -1,0 +1,10 @@
+const {_electron:electron}=require('@playwright/test');
+const fs=require('node:fs');const path=require('node:path');const os=require('node:os');const assert=require('node:assert/strict');
+(async()=>{const dir=fs.mkdtempSync(path.join(os.tmpdir(),'journal-ui-'));let app;
+try{app=await electron.launch({...(process.env.JOURNAL_PACKAGED?{executablePath:path.resolve('release/mac-arm64/Journal Note.app/Contents/MacOS/Journal Note'),args:[]}:{args:[path.resolve('.')]}),env:{...process.env,JOURNAL_TEST_DATA:dir}});const page=await app.firstWindow();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.getByLabel('日记标题',{exact:true}).waitFor();await page.getByLabel('日记标题',{exact:true}).fill('测试日记');await page.getByLabel('日记正文',{exact:true}).fill('旅行之后，记下一段安静的时光。');await page.getByText('已保存',{exact:true}).waitFor();
+await page.screenshot({path:path.join(dir,'desktop.png')});
+await page.getByRole('button',{name:'搜索日记'}).click();await page.getByLabel('搜索关键词').fill('旅行');await page.locator('nav .entry').first().waitFor();assert.equal(await page.locator('nav .entry').count(),1);
+await page.getByRole('button',{name:'移至回收站',exact:true}).click();await page.getByRole('button',{name:'回收站',exact:true}).click();await page.locator('nav .entry').first().click();await page.getByRole('button',{name:'恢复日记',exact:true}).click();
+await page.setViewportSize({width:680,height:600});await page.screenshot({path:path.join(dir,'narrow.png')});await page.getByRole('button',{name:'设置',exact:true}).click();await page.locator('.settings select').first().selectOption('dark');await page.getByRole('button',{name:'关闭设置',exact:true}).click();await page.screenshot({path:path.join(dir,'dark.png')});assert.deepEqual(errors,[]);console.log('Electron smoke passed. Screenshot: '+path.join(dir,'desktop.png'));
+}finally{if(app)await app.close();}})().catch(e=>{console.error(e);process.exitCode=1;});
